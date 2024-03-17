@@ -87,12 +87,16 @@ suspend fun writeContacts(messages: List<MessageEntry>) = withContext(Dispatcher
         FileOutputStream(contactsFile).use { fos ->
             fos.write("received,contact_name,message\n".toByteArray())
             for (message in messages) {
-                val urlEncodedMessage = URLEncoder.encode(message.message, "utf-8")
-                fos.write("${message.messageReceivedAt},${message.name},$urlEncodedMessage\n".toByteArray())
+                val preProcessedMessage = preprocessMessage(message.message)
+                fos.write("${message.messageReceivedAt},${message.name},$preProcessedMessage\n".toByteArray())
             }
             fos.flush()
         }
     }
+}
+
+private fun preprocessMessage(message: String): String {
+    return MessagePreprocessor.preprocessMessage(message)
 }
 
 @Composable

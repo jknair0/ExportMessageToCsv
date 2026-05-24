@@ -1,6 +1,8 @@
 package tech.jknair.readsms
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Telephony
@@ -8,7 +10,10 @@ import android.provider.Telephony.Sms.Inbox.ADDRESS
 import android.provider.Telephony.Sms.Inbox.BODY
 import android.provider.Telephony.Sms.Inbox.DATE
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,11 +33,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.database.getLongOrNull
 import androidx.core.database.getStringOrNull
 import kotlinx.coroutines.Dispatchers
@@ -104,12 +112,42 @@ private fun MessageListOwner() {
     val messages = remember { mutableStateListOf<MessageEntry>() }
     val context = LocalContext.current
 
-    LaunchedEffect(key1 = Unit, block = {
-        messages.clear()
-        messages.addAll(readMessages(context))
-    })
+    var permissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+        )
+    }
 
-    MessageList(messages)
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        permissionGranted = granted
+    }
+
+    LaunchedEffect(permissionGranted) {
+        if (permissionGranted) {
+            messages.clear()
+            messages.addAll(readMessages(context))
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!permissionGranted) {
+            permissionLauncher.launch(Manifest.permission.READ_SMS)
+        }
+    }
+
+    if (permissionGranted) {
+        MessageList(messages)
+    } else {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                text = "SMS permission is required to read messages.\nPlease grant the permission to continue.",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(32.dp)
+            )
+        }
+    }
 }
 
 @Composable
